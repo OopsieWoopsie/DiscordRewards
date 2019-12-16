@@ -1,0 +1,5 @@
+name: DiscordRewards
+main: eu.mcdb.discordrewards.bungee.BungeePlugin
+author: OopsieWoopsie
+version: ${project.version}
+depends: [Spicord]

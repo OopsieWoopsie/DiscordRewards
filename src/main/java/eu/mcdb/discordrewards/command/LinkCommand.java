@@ -1,26 +1,26 @@
 package eu.mcdb.discordrewards.command;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import eu.mcdb.discordrewards.LinkManager;
 import eu.mcdb.discordrewards.config.Config;
+import eu.mcdb.universal.command.UniversalCommand;
+import eu.mcdb.universal.command.UniversalCommandSender;
+import eu.mcdb.universal.player.UniversalPlayer;
 
-public class LinkCommand implements CommandExecutor {
+public class LinkCommand extends UniversalCommand {
 
     private final LinkManager linkManager;
     private final Config config;
 
     public LinkCommand(LinkManager linkManager, Config config) {
+        super("link", null, "discord");
         this.linkManager = linkManager;
         this.config = config;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String arg2, String[] arg3) {
-        if (sender instanceof Player) {
-            Player player = (Player) sender;
+    public boolean onCommand(UniversalCommandSender sender, String[] args) {
+        if (sender.isPlayer()) {
+            UniversalPlayer player = sender.getPlayer();
 
             if (linkManager.isVerified(player)) {
                 player.sendMessage(config.getAlreadyVerifiedMessage());
@@ -37,5 +37,5 @@ public class LinkCommand implements CommandExecutor {
             sender.sendMessage("You need to be a player to run this command!");
         }
         return true;
-    }
+   }
 }

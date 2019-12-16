@@ -16,53 +16,54 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import eu.mcdb.discordrewards.Account;
-import eu.mcdb.discordrewards.BukkitPlugin;
+import eu.mcdb.util.Server;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import net.dv8tion.jda.core.entities.Guild;
 import net.dv8tion.jda.core.entities.Role;
 import net.md_5.bungee.api.ChatColor;
 
+@Getter
+@Setter
 public class Config {
 
-    private static BukkitPlugin plugin;
+    @Getter(value = AccessLevel.NONE)
+    @Setter(value = AccessLevel.NONE)
+    private static File dataFolder;
+
+    @Getter(value = AccessLevel.NONE)
+    @Setter(value = AccessLevel.NONE)
     private Gson gson;
-    @Getter
-    private String prefix;
+
     private List<String> verifyInstructions;
-    @Getter
+    private String prefix;
     private boolean broadcastEnabled;
-    @Getter
     private List<String> broadcastMessage;
-    @Getter
     private boolean rewardEnabled;
-    @Getter
     private List<String> rewardCommands;
-    @Getter
     private String alreadyVerifiedMessage;
-    @Getter
     private Discord discord;
-    @Getter
     private Rewards rewards;
 
-    public Config(BukkitPlugin plugin, Map<String, FileConfiguration> cn) {
-        Config.plugin = plugin;
+    public Config(File dataFolder) {
+        Config.dataFolder = dataFolder;
         this.gson = new GsonBuilder().setPrettyPrinting().create();
 
-        FileConfiguration config = cn.get("config");
-        FileConfiguration discord = cn.get("discord");
-        FileConfiguration rewards = cn.get("rewards");
+        this.discord = new Discord();
+        this.rewards = new Rewards();
+    }
 
-        this.prefix = config.getString("prefix");
-        this.verifyInstructions = config.getStringList("verify-instructions");
-        this.broadcastEnabled = config.getBoolean("broadcast.enabled");
-        this.broadcastMessage = config.getStringList("broadcast.message");
+    public void applyAVMFilter() {
+        this.alreadyVerifiedMessage = alreadyVerifiedMessage.replace("{prefix}", prefix);
+        this.alreadyVerifiedMessage = ChatColor.translateAlternateColorCodes('&', alreadyVerifiedMessage);
+    }
 
+    public void applyBCFilter() {
         Function<String, String> filter = str -> {
             str = str.replace("{prefix}", prefix);
             str = ChatColor.translateAlternateColorCodes('&', str);
@@ -70,14 +71,6 @@ public class Config {
         };
 
         this.broadcastMessage = broadcastMessage.stream().map(filter).collect(Collectors.toList());
-        this.rewardEnabled = config.getBoolean("reward.enabled");
-        this.rewardCommands = config.getStringList("reward.commands");
-        this.alreadyVerifiedMessage = config.getString("already-verified-message");
-        this.alreadyVerifiedMessage = alreadyVerifiedMessage.replace("{prefix}", prefix);
-        this.alreadyVerifiedMessage = ChatColor.translateAlternateColorCodes('&', alreadyVerifiedMessage);
-
-        this.discord = new Discord(discord);
-        this.rewards = new Rewards(rewards);
     }
 
     public List<String> getVerifyInstructions(String code) {
@@ -91,31 +84,23 @@ public class Config {
         return verifyInstructions.stream().map(filter).collect(Collectors.toList());
     }
 
+    @Getter
+    @Setter
     public class Discord {
 
+        @Getter(value = AccessLevel.NONE)
         private boolean addRole;
+        @Getter(value = AccessLevel.NONE)
         private boolean renameUser;
-        @Getter
-        private Long channelId;
+        @Getter(value = AccessLevel.NONE)
         private boolean sendMessage;
-        @Getter
+
+        private Long channelId;
         private String nameTemplate;
         private String roleType;
         private String role;
 
-        private Discord(FileConfiguration config) {
-            this.addRole = config.getBoolean("add-role.enabled", false);
-            this.roleType = config.getString("add-role.type");
-            this.role = config.getString("add-role.role");
-            this.channelId = config.getLong("channel-id");
-            this.sendMessage = config.getBoolean("send-message", false);
-            this.renameUser = config.getBoolean("rename-user", false);
-            this.nameTemplate = config.getString("new-name");
-
-            if (!(roleType.equals("name") || roleType.equals("id"))) {
-                throw new IllegalArgumentException("'add-role.type' should be 'name' or 'id', you have put '" + roleType + "'!");
-            }
-        }
+        private Discord() {}
 
         public boolean shouldAddRole() {
             return addRole;
@@ -137,27 +122,36 @@ public class Config {
                 return guild.getRoleById(role);
             }
         }
+
+        public void checkRoleType() {
+            if (!(roleType.equals("name") || roleType.equals("id"))) {
+                throw new IllegalArgumentException("'add-role.type' should be 'name' or 'id', you have put '" + roleType + "'!");
+            }
+        }
     }
 
     public class Rewards {
 
         private Map<String, Reward> rewards;
-        private boolean sendDiscordMessage;
         private Map<UUID, Set<Integer>> cached;
         private File cachedFile;
 
-        private Rewards(FileConfiguration config) {
+        @Setter
+        private boolean sendDiscordMessage;
+
+        @Setter
+        private List<?> messageRewards;
+
+        private Rewards() {
             this.rewards = new HashMap<String, Reward>();
-            this.sendDiscordMessage = config.getBoolean("send-discord-message");
+        }
 
-            // warning: variable naming is too difficult :c
-
-            List<?> l = config.getList("message-rewards");
+        public void setup() {
             Gson gson = new Gson();
 
             Type type = new TypeToken<Map<String, Reward>>() {}.getType();
 
-            for (Object i : l) {
+            for (Object i : messageRewards) {
                 String json = gson.toJson(i);
 
                 Map<String, Reward> obj = gson.fromJson(json, type);
@@ -165,7 +159,7 @@ public class Config {
                 rewards.put(data.getKey(), data.getValue());
             }
 
-            this.cachedFile = new File(plugin.getDataFolder(), "cached-rewards.json");
+            this.cachedFile = new File(dataFolder, "cached-rewards.json");
             loadCached();
         }
 
@@ -252,13 +246,10 @@ public class Config {
                         .map(placeholders)
                         .forEach(Config::executeSyncCommand);
             }
-
         }
     }
 
-    public static void executeSyncCommand(String cmd) {
-        Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-            return Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
-        });
+    public static void executeSyncCommand(String command) {
+        Server.getInstance().dispatchCommand(command);
     }
 }

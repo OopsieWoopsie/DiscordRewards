@@ -12,10 +12,14 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import eu.mcdb.discordrewards.util.RandomUtils;
+import eu.mcdb.universal.player.UniversalPlayer;
+import eu.mcdb.util.Server;
+import lombok.Getter;
+import net.md_5.bungee.api.ProxyServer;
+import net.md_5.bungee.api.connection.ProxiedPlayer;
 
 public class LinkManager {
 
@@ -24,7 +28,15 @@ public class LinkManager {
     private final Map<Long, Account> accounts;
     private final File linkedFile;
 
+    @Getter
+    private static LinkManager instance;
+
     public LinkManager(File linkedFile) {
+        if (instance != null) {
+            throw new IllegalStateException("already initialized, use getInstance()");
+        }
+
+        instance = this;
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.pending = new HashMap<UUID, String>();
         this.accounts = new HashMap<Long, Account>();
@@ -48,11 +60,11 @@ public class LinkManager {
         }
     }
 
-    public boolean isPending(Player p) {
+    public boolean isPending(UniversalPlayer p) {
         return pending.containsKey(p.getUniqueId());
     }
 
-    public String generateCode(Player player) {
+    public String generateCode(UniversalPlayer player) {
         String seed = player.getUniqueId().toString().replace("-", "").toUpperCase();
         return RandomUtils.randomString(8, seed);
     }
@@ -66,7 +78,7 @@ public class LinkManager {
         return accounts.values().stream().filter(filter).findFirst().orElse(null);
     }
 
-    public boolean isVerified(Player player) {
+    public boolean isVerified(UniversalPlayer player) {
         UUID uuid = player.getUniqueId();
 
         return accounts.values().stream()
@@ -74,7 +86,7 @@ public class LinkManager {
                 .anyMatch(uuid::equals);
     }
 
-    public void addPendingPlayer(Player player, String code) {
+    public void addPendingPlayer(UniversalPlayer player, String code) {
         pending.put(player.getUniqueId(), code);
     }
 
@@ -109,11 +121,18 @@ public class LinkManager {
     }
 
     private String getName(UUID uuid) {
-        OfflinePlayer p = Bukkit.getServer().getOfflinePlayer(uuid);
-        return p == null ? "" : p.getName();
+        switch (Server.getServerType()) {
+        case BUKKIT:
+            OfflinePlayer p = Bukkit.getServer().getOfflinePlayer(uuid);
+            return p == null ? "" : p.getName();
+        case BUNGEECORD:
+            ProxiedPlayer p1 = ProxyServer.getInstance().getPlayer(uuid);
+            return p1 == null ? "" : p1.getName();
+        default:
+            return "";
+        }
     }
 
-    // this is temporary
     public void removeCode(String code) {
         pending.values().remove(code);
     }

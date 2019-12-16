@@ -1,5 +1,5 @@
 name: DiscordRewards
-main: eu.mcdb.discordrewards.BukkitPlugin
+main: eu.mcdb.discordrewards.bukkit.BukkitPlugin
 author: OopsieWoopsie
 version: ${project.version}
 depend: [Spicord]

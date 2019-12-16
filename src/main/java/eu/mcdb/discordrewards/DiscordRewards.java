@@ -39,12 +39,12 @@ public class DiscordRewards extends SimpleAddon {
     private EmbedLoader embedLoader;
     private String prefix;
 
-    public DiscordRewards(BukkitPlugin plugin, Config config) {
+    public DiscordRewards(File dataFolder, Config config) {
         super("DiscordRewards", "rewards", "OopsieWoopsie", new String[] { "instructions" });
-        this.logger = plugin.getLogger();
-        this.lm = plugin.getLinkManager();
+        this.logger = Logger.getLogger("DiscordRewards");
+        this.lm = LinkManager.getInstance();
         this.config = config;
-        File embedFolder = new File(plugin.getDataFolder(), "embed");
+        File embedFolder = new File(dataFolder, "embed");
         this.embedLoader = new EmbedLoader();
         this.embedLoader.load(embedFolder);
     }
