@@ -1,0 +1,4 @@
+name: DiscordRewardsConnector
+main: eu.mcdb.discordrewards.bukkit.connector.BukkitPlugin
+author: OopsieWoopsie
+version: ${project.version}
